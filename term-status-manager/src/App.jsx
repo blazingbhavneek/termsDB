@@ -147,8 +147,12 @@ function App() {
     disapproved: true
   });
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState(null);
+  const [sortBy, setSortBy] = useState(null); // Can be null for default sort
   const [editingMeaning, setEditingMeaning] = useState({});
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 200;
 
   const t = (key, params = {}) => {
     let text = TRANSLATIONS[language][key] || key;
@@ -165,19 +169,18 @@ function App() {
   const loadFromDb = async () => {
     setLoading(true);
     try {
-      const terms = await API.loadTerms(); // This now fetches from the backend
+      const terms = await API.loadTerms();
       const termsMap = {};
       terms.forEach(term => {
-        // Ensure the term object structure matches what your backend returns
-        // e.g., has 'term', 'meaning', 'status', 'createdAt' fields
         termsMap[term.term] = term; 
       });
       setLocalTerms(termsMap);
       setChangeHistory([]); // Clear local history on fresh load
+      setCurrentPage(1); // Reset to first page when data loads
       showMessage(t('loadedTerms', { count: terms.length }), 'success');
     } catch (error) {
-      console.error("Failed to load terms from DB:", error); // Better error logging
-      showMessage('Error loading terms: ' + error.message, 'error'); // Show user-friendly message
+      console.error("Failed to load terms from DB:", error);
+      showMessage('Error loading terms: ' + error.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -198,7 +201,7 @@ function App() {
     }]);
   };
 
-  const updateLocalStatus = async (termName, newStatus) => { // Make function async
+  const updateLocalStatus = async (termName, newStatus) => {
     if (localTerms[termName] && localTerms[termName].status !== newStatus) {
       const oldStatus = localTerms[termName].status;
       recordChange('status', termName, oldStatus, newStatus);
@@ -210,18 +213,13 @@ function App() {
       }));
 
       try {
-         // Attempt to save the change immediately
          await API.updateTermStatus(termName, newStatus); 
-         // Optionally, show a subtle confirmation or handle success differently
-         // console.log(`Updated ${termName} status to ${newStatus}`); 
       } catch (error) {
-         // Revert the optimistic update on failure
          console.error(`Failed to update status for ${termName}:`, error);
          setLocalTerms(prev => ({
            ...prev,
            [termName]: { ...prev[termName], status: oldStatus } // Revert
          }));
-         // Remove the change from history as it failed
          setChangeHistory(prev => prev.slice(0, -1)); 
          showMessage(`Error updating ${termName}: ${error.message}`, 'error');
       }
@@ -289,19 +287,12 @@ function App() {
 
   const saveToDb = async () => {
     if (changeHistory.length === 0) {
-       showMessage(t('noChanges'), 'info'); // Inform user if nothing to save
+       showMessage(t('noChanges'), 'info');
        return; 
     }
 
     try {
-      // Use the new API function to save changes
       const result = await API.saveChanges(changeHistory); 
-      
-      // Optionally, reload terms after saving to ensure state consistency,
-      // or optimistically update the local state based on the changes sent.
-      // Reloading is simpler but might cause a brief flicker.
-      // loadFromDb(); 
-      
       setChangeHistory([]); // Clear history after successful save
       showMessage(t('saved'), 'success');
     } catch (error) {
@@ -340,6 +331,14 @@ function App() {
     }
 
     return filtered;
+  };
+
+  // Get paginated terms
+  const getPaginatedTerms = () => {
+    const filtered = getFilteredTerms();
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filtered.slice(startIndex, endIndex);
   };
 
   const getStats = () => {
@@ -382,7 +381,9 @@ function App() {
     showMessage(t('deletedCount', { count }), 'success');
   };
 
-  const filteredTerms = getFilteredTerms();
+  const filteredTerms = getPaginatedTerms(); // Use paginated terms
+  const allFilteredTerms = getFilteredTerms(); // For pagination controls
+  const totalPages = Math.ceil(allFilteredTerms.length / itemsPerPage);
   const stats = getStats();
   const selectedStatuses = Object.keys(statusFilters).filter(k => statusFilters[k]);
 
@@ -553,6 +554,16 @@ function App() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     {t('sortBy')}
                   </label>
+                  <label className="flex items-center mb-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="sort"
+                      checked={sortBy === null}
+                      onChange={() => setSortBy(null)}
+                      className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">Default</span>
+                  </label>
                   {selectedStatuses.map(status => (
                     <label key={status} className="flex items-center mb-2 cursor-pointer">
                       <input
@@ -575,7 +586,7 @@ function App() {
             <div className="bg-white rounded-lg shadow">
               <div className="p-6 border-b border-gray-200">
                 <h2 className="text-xl font-semibold">
-                  {t('termsShown', { count: filteredTerms.length })}
+                  {t('termsShown', { count: allFilteredTerms.length })}
                 </h2>
               </div>
 
@@ -677,6 +688,15 @@ function App() {
                               <X className="w-5 h-5" />
                             </button>
                           )}
+                          {term.status !== 'pending' && (
+                            <button
+                              onClick={() => updateLocalStatus(term.term, 'pending')}
+                              className="p-2 bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200 transition"
+                              title={t('pending')}
+                            >
+                              🔄
+                            </button>
+                          )}
                           <button
                             onClick={() => deleteLocalTerm(term.term)}
                             className="p-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition"
@@ -690,6 +710,31 @@ function App() {
                   ))
                 )}
               </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="p-6 border-t border-gray-200 flex justify-between items-center">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  
+                  <span className="text-gray-700">
+                    Page {currentPage} of {totalPages} ({allFilteredTerms.length} total items)
+                  </span>
+                  
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
