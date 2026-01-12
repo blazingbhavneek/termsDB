@@ -4,23 +4,23 @@
     "input": 1000,
     "output": 1000,
     "filtered": 0,
-    "time_ms": 11.601924896240234,
-    "throughput": 86192.59381036538
+    "time_ms": 12.920379638671875,
+    "throughput": 77397.10658399764
   },
   {
     "group": "Group 2",
     "input": 1000,
-    "output": 865,
-    "filtered": 135,
-    "time_ms": 7.738351821899414,
-    "throughput": 129226.48427149767
+    "output": 862,
+    "filtered": 138,
+    "time_ms": 4.858732223510742,
+    "throughput": 205815.00564306395
   },
   {
     "group": "Group 3",
     "input": 1000,
-    "output": 847,
-    "filtered": 153,
-    "time_ms": 6.186723709106445,
-    "throughput": 161636.44071062468
+    "output": 833,
+    "filtered": 167,
+    "time_ms": 5.944252014160156,
+    "throughput": 168229.7449061447
   }
 ]
