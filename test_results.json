@@ -1,0 +1,26 @@
+[
+  {
+    "group": "Group 1",
+    "input": 1000,
+    "output": 1000,
+    "filtered": 0,
+    "time_ms": 11.601924896240234,
+    "throughput": 86192.59381036538
+  },
+  {
+    "group": "Group 2",
+    "input": 1000,
+    "output": 865,
+    "filtered": 135,
+    "time_ms": 7.738351821899414,
+    "throughput": 129226.48427149767
+  },
+  {
+    "group": "Group 3",
+    "input": 1000,
+    "output": 847,
+    "filtered": 153,
+    "time_ms": 6.186723709106445,
+    "throughput": 161636.44071062468
+  }
+]

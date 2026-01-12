@@ -1,3 +1,0 @@
-# yougoDB
-# yougoDB
-# termsDB
